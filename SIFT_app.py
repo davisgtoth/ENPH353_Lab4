@@ -14,7 +14,7 @@ class My_App(QtWidgets.QMainWindow):
         loadUi("./SIFT_app.ui", self)
 
         self._cam_id = 0
-        self._cam_fps = 2
+        self._cam_fps = 10
         self._is_cam_enabled = False
         self._is_template_loaded = False
 
@@ -52,25 +52,31 @@ class My_App(QtWidgets.QMainWindow):
         return QtGui.QPixmap.fromImage(q_img)
 
     def SLOT_query_camera(self):
+        # get camera frame and image
         ret, frame = self._camera_device.read()
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         img = cv2.imread("robot_logo.jpg", cv2.IMREAD_GRAYSCALE)
         
+        # get key points and descriptors
         sift = cv2.SIFT_create()
         kp_img, des_img = sift.detectAndCompute(img, None)
         kp_frame, des_frame = sift.detectAndCompute(frame, None)
         
+        # find the matches of the descriptors
         index_params = dict(algorithm=0, trees=5)
         search_params = dict()
         flann = cv2.FlannBasedMatcher(index_params, search_params)
         matches = flann.knnMatch(des_img, des_frame, k=2)
 
+        # find the good matches 
         good_matches = []
         for i, j in matches:
             if i.distance < 0.5 * j.distance:
                 good_matches.append(i)
         
-        homo_thresh = 8
+        # either draw the matches and key points or the homography 
+        # based on the number of good matches found to the frame
+        homo_thresh = 10
         if len(good_matches) < homo_thresh:
             frame = cv2.drawMatches(img, kp_img, frame, kp_frame, good_matches, frame)
         else:
@@ -87,6 +93,7 @@ class My_App(QtWidgets.QMainWindow):
             frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
             frame = cv2.polylines(frame, [np.int32(dst)], True, (255, 0, 0), 3)
 
+        # print the frame to the GUI
         pixmap = self.convert_cv_to_pixmap(frame)
         self.live_image_label.setPixmap(pixmap)
 
